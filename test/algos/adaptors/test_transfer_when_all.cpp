@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <__config.hpp>
+
+#if _P2300_GCC()
+#else
 
 #include <catch2/catch.hpp>
 #include <execution.hpp>
@@ -111,3 +115,5 @@ TEST_CASE("transfer_when_all_with_variant can be customized", "[adaptors][transf
   );
   wait_for_value(std::move(snd), std::string{"first program"});
 }
+
+#endif

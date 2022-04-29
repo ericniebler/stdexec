@@ -32,6 +32,11 @@
  * - show how one can change the execution context
  * - exemplify the use of `on` and `transfer` algorithms
  */
+#include <__config.hpp>
+
+#if _P2300_GCC()
+int main() { return 0; }
+#else
 
 #include <iostream>
 #include <array>
@@ -78,7 +83,6 @@ int main() {
     auto snd =
         // start by reading data on the I/O thread
         ex::on(io_sched, std::move(snd_read)) // TODO: doesn't work apple-clang-13
-        // ex::on(io_sched, ex::just(size_t(13)))
         // do the processing on the worker threads pool
         | ex::transfer(work_sched)
         // process the incoming data (on worker threads)
@@ -96,3 +100,5 @@ int main() {
 
   return 0;
 }
+
+#endif

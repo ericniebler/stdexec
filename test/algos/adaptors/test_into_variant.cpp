@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+#include <__config.hpp>
+
+#if _P2300_GCC()
+#else
+
 #include <catch2/catch.hpp>
 #include <execution.hpp>
 #include <test_common/schedulers.hpp>
@@ -133,3 +138,5 @@ TEST_CASE("into_variant keeps sends_stopped from input sender", "[adaptors][into
   check_sends_stopped<true>( //
       ex::just_stopped() | ex::into_variant());
 }
+
+#endif

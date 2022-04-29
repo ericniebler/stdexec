@@ -40,6 +40,11 @@
  * - exemplify the use of let_value, let_error, let_stopped, transfer_just and just
  * algorithms
  */
+#include <__config.hpp>
+
+#if _P2300_GCC()
+int main() { return 0; }
+#else
 
 #include <iostream>
 #include <stdexcept>
@@ -151,3 +156,5 @@ int main() {
 
   return 0;
 }
+
+#endif

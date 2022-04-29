@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <__config.hpp>
+
+#if _P2300_GCC()
+#else
 
 #include <catch2/catch.hpp>
 #include <execution.hpp>
@@ -139,3 +143,5 @@ TEST_CASE("stopped_as_error overrides sends_stopped to false", "[adaptors][stopp
   check_sends_stopped<false>( //
       ex::transfer_just(sched3, 3) | ex::stopped_as_error(-1));
 }
+
+#endif

@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <__config.hpp>
+
+#if _P2300_GCC()
+#else
 
 #include <catch2/catch.hpp>
 #include <execution.hpp>
@@ -210,3 +214,5 @@ TEST_CASE("let_stopped can be customized", "[adaptors][let_stopped]") {
              | ex::let_stopped([] { return ex::just(std::string{"stopped"}); });
   wait_for_value(std::move(snd), std::string{"Don't stop me now"});
 }
+
+#endif

@@ -13,11 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#if defined(__GNUC__) && !defined(__clang__)
+int main() { return 0; }
+#else
+
 #include <iostream>
 
 // Pull in the reference implementation of P2300:
 #include <execution.hpp>
 
+#if !_STD_NO_COROUTINES_
 #include "./task.hpp"
 
 using namespace std::execution;
@@ -46,3 +51,5 @@ int main() try {
 } catch(std::exception & e) {
   std::cout << e.what() << '\n';
 }
+#endif
+#endif
