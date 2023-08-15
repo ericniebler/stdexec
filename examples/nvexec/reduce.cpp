@@ -32,10 +32,12 @@ int main() {
 
   nvexec::stream_context stream_ctx{};
 
-  auto snd = ex::transfer_just(stream_ctx.get_scheduler(), std::span{first, last})
+  auto snd = ex::just(std::span{first, last})
            | nvexec::reduce(42.0f);
 
-  auto [result] = stdexec::sync_wait(std::move(snd)).value();
+  auto [result] =
+    stdexec::sync_wait(
+      ex::on(stream_ctx.get_scheduler(), std::move(snd))).value();
 
   std::cout << "result: " << result << std::endl;
 }

@@ -74,6 +74,17 @@ namespace nvexec {
     template <sender Sender>
     using ensure_started_th = __t<ensure_started_sender_t<__id<Sender>>>;
 
+    struct stream_domain {
+      template <class _Sender, class _Env = empty_env>
+      static _Sender transform_sender(_Sender&& __sndr, const _Env& = {})
+        // BUGBUG fix me:
+        noexcept(std::is_reference_v<_Sender>)
+      // noexcept(__nothrow_constructible_from<_Sender, _Sender&&>)
+      {
+        return static_cast<_Sender&&>(__sndr);
+      }
+    };
+
     struct stream_scheduler {
       using __t = stream_scheduler;
       using __id = stream_scheduler;
@@ -146,6 +157,11 @@ namespace nvexec {
           env env_;
         };
       };
+
+      template <sender S>
+      friend stream_domain tag_invoke(get_domain_t, const stream_scheduler& sch) noexcept {
+        return {};
+      }
 
       using sender_t = stdexec::__t<sender_>;
 

@@ -5408,12 +5408,12 @@ namespace stdexec {
       template <scheduler _Scheduler, sender _Sender>
       auto operator()(_Scheduler&& __sched, _Sender&& __sndr) const
         -> __t<__sender<stdexec::__id<__decay_t<_Scheduler>>, stdexec::__id<__decay_t<_Sender>>>> {
-        // connect-based customization will remove the need for this check
-        using __has_customizations = __call_result_t<__has_algorithm_customizations_t, _Scheduler>;
-        static_assert(
-          !__has_customizations{},
-          "For now the default stdexec::on implementation doesn't support scheduling "
-          "onto schedulers that customize algorithms.");
+        // // connect-based customization will remove the need for this check
+        // using __has_customizations = __call_result_t<__has_algorithm_customizations_t, _Scheduler>;
+        // static_assert(
+        //   !__has_customizations{},
+        //   "For now the default stdexec::on implementation doesn't support scheduling "
+        //   "onto schedulers that customize algorithms.");
         return {(_Scheduler&&) __sched, (_Sender&&) __sndr};
       }
     };
