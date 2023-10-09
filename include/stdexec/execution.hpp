@@ -5136,6 +5136,7 @@ namespace stdexec {
 
     inline void run_loop::finish() {
       std::unique_lock __lock{__mutex_};
+      //kernel<<<1,0,0>>>();
       __stop_ = true;
       __cv_.notify_all();
     }
@@ -6962,6 +6963,7 @@ namespace stdexec {
         template <same_as<set_value_t> _Tag, class... _As>
           requires constructible_from<std::tuple<_Values...>, _As...>
         friend void tag_invoke(_Tag, __t&& __rcvr, _As&&... __as) noexcept {
+          //kernel<<<1,0,0>>>(__as...);
           try {
             __rcvr.__state_->__data_.template emplace<1>((_As&&) __as...);
             __rcvr.__loop_->finish();
@@ -6972,10 +6974,12 @@ namespace stdexec {
 
         template <same_as<set_error_t> _Tag, class _Error>
         friend void tag_invoke(_Tag, __t&& __rcvr, _Error __err) noexcept {
+          //kernel<<<1,0,0>>>(__err);
           __rcvr.__set_error((_Error&&) __err);
         }
 
         friend void tag_invoke(set_stopped_t __d, __t&& __rcvr) noexcept {
+          //kernel<<<1,0,0>>>();
           __rcvr.__state_->__data_.template emplace<3>(__d);
           __rcvr.__loop_->finish();
         }

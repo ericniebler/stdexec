@@ -344,10 +344,12 @@ auto maxwell_eqs_snr(
   return ex::just()
        | exec::on(
            computer,
-           repeat_n(
-             n_iterations,
-             ex::bulk(accessor.cells, update_h(accessor))
-               | ex::bulk(accessor.cells, update_e(time, dt, accessor))))
+            ex::bulk(accessor.cells, update_h(accessor))
+              | ex::bulk(accessor.cells, update_e(time, dt, accessor)))
+          //  repeat_n(
+          //    n_iterations,
+          //    ex::bulk(accessor.cells, update_h(accessor))
+          //      | ex::bulk(accessor.cells, update_e(time, dt, accessor))))
        | ex::then(dump_vtk(write_results, accessor));
 }
 

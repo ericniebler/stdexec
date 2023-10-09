@@ -266,9 +266,9 @@ namespace stdexec {
   concept sender_expr = //
     __mvalid<__tag_of, _Sender>;
 
-  template <class _Sender, class _Tag>
+  template <class _Sender, class... _Tags>
   concept sender_expr_for = //
-    sender_expr<_Sender> && same_as<__tag_of<_Sender>, _Tag>;
+    sender_expr<_Sender> && __one_of<__tag_of<_Sender>, _Tags...>;
 
   // The __name_of utility defined below is used to pretty-print the type names of
   // senders in compiler diagnostics.

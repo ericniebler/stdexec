@@ -36,6 +36,7 @@
 #include "stream/when_all.cuh"
 #include "stream/reduce.cuh"
 #include "stream/ensure_started.cuh"
+#include "stream/wrap.cuh"
 
 #include "stream/common.cuh"
 #include "detail/queue.cuh"
@@ -87,14 +88,9 @@ namespace nvexec {
     template <sender Sender>
     using ensure_started_th = __t<ensure_started_sender_t<__id<Sender>>>;
 
-    // needed for subsumption purposes
-    template <class Sender, class Env>
-    concept _non_stream_sender = //
-      !derived_from<__decay_t<Sender>, stream_sender_base>;
-
     struct stream_scheduler;
 
-    template <class = stream_scheduler>
+    template <class /*= stream_scheduler*/>
     struct stream_domain {
       stream_domain(context_state_t context_state)
         : context_state_(context_state) {
@@ -104,7 +100,8 @@ namespace nvexec {
       template <sender_expr Sender, class Env>
         requires _non_stream_sender<Sender, Env> // no need to transform it a second time
       auto transform_sender(Sender&& sndr, const Env& env) const noexcept {
-        return stdexec::apply_sender(
+        //print<__name_of<Sender>>();
+        auto result = stdexec::apply_sender(
           (Sender&&) sndr,
           [&]<class Tag, class Data, class... Children>(Tag, Data&& data, Children&&... children) {
             return stdexec::transform_sender(
@@ -114,19 +111,77 @@ namespace nvexec {
                 stdexec::transform_sender(*this, (Children&&) children, env)...)
                 /*, env*/); // no env here!!
           });
+        //print<__name_of<decltype(result)>>();
+        return result;
       }
 
-      // reduce senders get a special transformation
-      template <sender_expr_for<reduce_t> Sender, class Env>
+      template <sender_expr_for<schedule_from_t> Sender, class Env>
         requires _non_stream_sender<Sender, Env> // no need to transform it a second time
       auto transform_sender(Sender&& sndr, const Env& env) const noexcept {
         return stdexec::apply_sender(
           (Sender&&) sndr,
           [&]<class Tag, class Data, class Child>(Tag, Data&& data, Child&& child) {
-            auto [init, fun] = (Data&&) data;
+            auto sched = get_scheduler(env);
             auto next = stdexec::transform_sender(*this, (Child&&) child, env);
-            return reduce_sender_t<decltype(next), decltype(init), decltype(fun)>(
-              std::move(next), init, fun);
+            return stdexec::__t<
+              schedule_from_sender_t<stream_scheduler, stdexec::__id<decltype(next)>>>{
+              sched.context_state_, std::move(next)};
+          });
+      }
+
+      // // reduce senders get a special transformation
+      // template <sender_expr_for<reduce_t> Sender, class Env>
+      //   requires _non_stream_sender<Sender, Env> // no need to transform it a second time
+      // auto transform_sender(Sender&& sndr, const Env& env) const noexcept {
+      //   return stdexec::apply_sender(
+      //     (Sender&&) sndr,
+      //     [&]<class Tag, class Data, class Child>(Tag, Data&& data, Child&& child) {
+      //       auto [init, fun] = (Data&&) data;
+      //       auto next = stdexec::transform_sender(*this, (Child&&) child, env);
+      //       return reduce_sender_t<decltype(next), decltype(init), decltype(fun)>(
+      //         std::move(next), init, fun);
+      //     });
+      // }
+
+      // transform senders get a special transformation
+      template <sender_expr_for<transfer_t> Sender, class Env>
+        requires _non_stream_sender<Sender, Env> // no need to transform it a second time
+      auto transform_sender(Sender&& sndr, const Env& env) const noexcept {
+        return stdexec::apply_sender(
+          (Sender&&) sndr, [&]<class Data, class Child>(__ignore, Data&& data, Child&& child) {
+            auto from = get_scheduler(env);
+            auto to = get_completion_scheduler<set_value_t>(data);
+            auto next = stdexec::transform_sender(*this, (Child&&) child, env);
+            auto transfer = __t<transfer_sender_t<decltype(next)>>(
+              from.context_state_, std::move(next));
+            return schedule_from(to, std::move(transfer));
+          });
+      }
+
+      // template <sender_expr_for<just_t, just_error_t, just_stopped_t> Sender, class Env>
+      //   requires _non_stream_sender<Sender, Env> // no need to transform it a second time
+      // auto transform_sender(Sender&& sndr, const Env& env) const noexcept {
+      //   return stdexec::apply_sender(
+      //     (Sender&&) sndr, [&]<class Tag, class Data>(Tag, Data&& data) {
+      //       return make_sender_expr<Tag, stream_domain>(
+      //         (Data&&) data, get_completion_scheduler<Tag>(data));
+      //     });
+      // }
+      // template <sender_expr_for<just_t> Sender, class Env>
+      //   requires _non_stream_sender<Sender, Env> // no need to transform it a second time
+      // auto transform_sender(Sender&& sndr, const Env&) const noexcept {
+      //   return just_sender<__decay_t<Sender>>{(Sender&&) sndr, base()};
+      // }
+
+      template <sender_expr_for<bulk_t> Sender, class Env>
+        requires _non_stream_sender<Sender, Env> // no need to transform it a second time
+      auto transform_sender(Sender&& sndr, const Env& env) const noexcept {
+        return stdexec::apply_sender(
+          (Sender&&) sndr, [&]<class Data, class Child>(__ignore, Data&& data, Child&& child) {
+            auto&& [shape, fun] = (Data&&) data;
+            auto next = stdexec::transform_sender(*this, (Child&&) child, env);
+            return bulk_sender_th<decltype(next), decltype(shape), decltype(fun)>{
+              {}, std::move(next), shape, fun};
           });
       }
 
@@ -338,6 +393,10 @@ namespace nvexec {
       // private: TODO
       context_state_t context_state_;
     };
+
+    inline stream_scheduler context_state_t::make_stream_scheduler() const noexcept {
+      return {*this};
+    }
 
     template <stream_completing_sender Sender>
     void tag_invoke(start_detached_t, Sender&& sndr) noexcept(false) {

@@ -165,6 +165,8 @@ namespace nvexec {
       }
     };
 
+    struct stream_scheduler;
+
     struct context_state_t {
       std::pmr::memory_resource* pinned_resource_{nullptr};
       std::pmr::memory_resource* managed_resource_{nullptr};
@@ -195,13 +197,21 @@ namespace nvexec {
       void return_stream(cudaStream_t stream) {
         stream_pools_->return_stream(stream, priority_);
       }
+
+      stream_scheduler make_stream_scheduler() const noexcept;
     };
 
-    struct stream_scheduler;
+    template <class = stream_scheduler>
+    struct stream_domain;
 
     struct stream_sender_base {
       using is_sender = void;
     };
+
+    // needed for subsumption purposes
+    template <class Sender, class Env>
+    concept _non_stream_sender = //
+      !derived_from<__decay_t<Sender>, stream_sender_base>;
 
     struct stream_receiver_base : __receiver_base {
       constexpr static std::size_t memory_allocation_size = 0;
@@ -265,6 +275,10 @@ namespace nvexec {
       stream_provider_t* operator()(const Env& env) const noexcept {
         return tag_invoke(get_stream_provider_t{}, env);
       }
+
+      friend constexpr bool tag_invoke(forwarding_query_t, const get_stream_provider_t&) noexcept {
+        return true;
+      }
     };
 
     template <class... Ts>
@@ -307,7 +321,10 @@ namespace nvexec {
     using variant_storage_t = //
       __minvoke< __minvoke<
         __mfold_right<
-          __mbind_front_q<stream_storage_impl::variant, ::cuda::std::tuple<set_noop>>,
+          __mbind_front_q<
+            stream_storage_impl::variant,
+            ::cuda::std::tuple<set_noop>,
+            ::cuda::std::tuple<set_error_t, cudaError_t>>,
           __mbind_front_q<stream_storage_impl::__bind_completions_t, _Sender, _Env>>,
         set_value_t,
         set_error_t,
@@ -567,7 +584,8 @@ namespace nvexec {
 
         template <__decays_to<cudaError_t> Error>
         void propagate_completion_signal(set_error_t, Error&& status) noexcept {
-          if constexpr (stream_receiver<outer_receiver_t>) {
+          using Domain = __env_domain_of_t<env_of_t<outer_receiver_t>>;
+          if constexpr (stream_receiver<outer_receiver_t> || same_as<Domain, stream_domain<>>) {
             set_error((outer_receiver_t&&) rcvr_, (cudaError_t&&) status);
           } else {
             // pass a cudaError_t by value:
@@ -578,7 +596,8 @@ namespace nvexec {
 
         template <class Tag, class... As>
         void propagate_completion_signal(Tag, As&&... as) noexcept {
-          if constexpr (stream_receiver<outer_receiver_t>) {
+          using Domain = __env_domain_of_t<env_of_t<outer_receiver_t>>;
+          if constexpr (stream_receiver<outer_receiver_t> || same_as<Domain, stream_domain<>>) {
             Tag()((outer_receiver_t&&) rcvr_, (As&&) as...);
           } else {
             continuation_kernel<outer_receiver_t, As&&...> // by reference
