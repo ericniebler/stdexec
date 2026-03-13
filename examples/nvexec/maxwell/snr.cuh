@@ -418,12 +418,12 @@ auto maxwell_eqs_snr(float                dt,
                      fields_accessor      accessor,
                      ex::scheduler auto&& computer)
 {
-#if 0
+#if 1  //0
   return ex::on(computer,
                 exec::repeat_n(ex::just()  //
                                  | ex::bulk(ex::par, accessor.cells, update_h(accessor))
                                  | ex::bulk(ex::par, accessor.cells, update_e(time, dt, accessor)),
-                               n_iterations))
+                               n_iterations))  //
        | ex::then(dump_vtk(write_results, accessor));
 #else
   return ex::just()

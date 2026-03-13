@@ -28,6 +28,7 @@
 #include "__schedulers.hpp"
 #include "__sender_adaptor_closure.hpp"
 #include "__sender_introspection.hpp"
+#include "__starts_on.hpp"
 #include "__utility.hpp"
 
 namespace STDEXEC
@@ -35,6 +36,71 @@ namespace STDEXEC
   /////////////////////////////////////////////////////////////////////////////
   // [execution.senders.adaptors.on]
   struct _CANNOT_RESTORE_EXECUTION_CONTEXT_AFTER_ON_;
+
+  namespace __on
+  {
+    // If __is_root_env<_Env> is true, then this sender has no parent, so there is no need
+    // to restore the execution context. We can use the inline scheduler as the scheduler
+    // if __env does not have one.
+    template <class _Sender, class _Env>
+    using __end_sched_t =
+      __if_c<__is_root_env<_Env>,
+             inline_scheduler,
+             __not_a_scheduler<_WHAT_(_CANNOT_RESTORE_EXECUTION_CONTEXT_AFTER_ON_),
+                               _WHY_(_THE_CURRENT_EXECUTION_ENVIRONMENT_DOESNT_HAVE_A_SCHEDULER_),
+                               _WHERE_(_IN_ALGORITHM_, on_t),
+                               _WITH_PRETTY_SENDER_<__child_of<_Sender>>,
+                               _WITH_ENVIRONMENT_(_Env)>>;
+
+    template <class _Child, class _Data>
+    struct __attrs
+    {
+      using __scheduler_t = __tuple_element_t<0, _Data const &>;
+      using __closure_t   = __tuple_element_t<1, _Data const &>;
+
+      // TODO
+
+      __scheduler_t    __sched_;
+      env_of_t<_Child> __attrs_;
+    };
+
+    template <class _Child, class _Scheduler>
+      requires scheduler<_Scheduler>
+    struct __attrs<_Child, _Scheduler>
+    {
+      using __child_t = __result_of<starts_on, _Scheduler, _Child>;
+      template <class _Env>
+      using __attrs_t = __trnsfr::__attrs<__result_of<get_scheduler, _Env>, __child_t>;
+
+      template <class _Query, class _Env>
+        requires __completion_query<_Query>               //
+              && __queryable_with<get_scheduler_t, _Env>  //
+              && __queryable_with<__attrs_t<_Env>, _Query, _Env>
+      STDEXEC_ATTRIBUTE(nodiscard, always_inline, host, device)
+      constexpr auto operator()(_Query __query, _Env&& __env) const
+        noexcept(__nothrow_queryable_with<__attrs_t<_Env>, _Query, _Env>)
+          -> __query_result_t<__attrs_t<_Env>, _Query, _Env>
+      {
+        auto __old_sch = get_scheduler(__env);
+        auto __attrs   = __attrs_t<_Env>(__old_sch, __starts_on::__attrs(__sched_, __attrs_));
+        return __query(__attrs, static_cast<_Env&&>(__env));
+      }
+
+      template <__forwarding_query _Query, class... _Args>
+        requires(!__completion_query<_Query>)
+             && __queryable_with<env_of_t<_Child>, _Query, _Args...>
+      STDEXEC_ATTRIBUTE(nodiscard, always_inline, host, device)
+      constexpr auto operator()(_Query __query, _Args&&... __args) const
+        noexcept(__nothrow_queryable_with<env_of_t<_Child>, _Query, _Args...>)
+          -> __query_result_t<env_of_t<_Child>, _Query, _Args...>
+      {
+        return __attrs_.query(__query, static_cast<_Args&&>(__args)...);
+      }
+
+      _Scheduler       __sched_;
+      env_of_t<_Child> __attrs_;
+    };
+  }  // namespace __on
 
   ////////////////////////////////////////////////////////////////////////////////////////////////
   struct on_t
@@ -72,7 +138,8 @@ namespace STDEXEC
     {
       static_assert(__sender_for<_Sender, on_t>);
       auto& [__tag, __new_sched, __child] = __sndr;
-      auto __old_sched = __with_default(get_scheduler, __end_sched_t<_Sender, _Env>())(__env);
+      auto __default_sched                = __on::__end_sched_t<_Sender, _Env>();
+      auto __old_sched                    = __with_default(get_scheduler, __default_sched)(__env);
 
       return continues_on(starts_on(STDEXEC::__forward_like<_Sender>(__new_sched),
                                     STDEXEC::__forward_like<_Sender>(__child)),
@@ -90,9 +157,9 @@ namespace STDEXEC
       static_assert(__sender_for<_Sender, on_t>);
       auto& [__tag, __data, __child] = __sndr;
       auto& [__new_sched, __clsur]   = __data;
-
-      auto __old_sched = __with_default(get_completion_scheduler<set_value_t>,
-                                        __end_sched_t<_Sender, _Env>())(get_env(__child), __env);
+      auto __default_sched           = __on::__end_sched_t<_Sender, _Env>();
+      auto __old_sched               = __with_default(get_completion_scheduler<set_value_t>,
+                                        __default_sched)(get_env(__child), __env);
 
       return continues_on(STDEXEC::__forward_like<_Sender>(__clsur)(
                             continues_on(STDEXEC::__forward_like<_Sender>(__child),
@@ -106,20 +173,6 @@ namespace STDEXEC
       return __not_a_sender<_WHAT_(_SENDER_TYPE_IS_NOT_DECAY_COPYABLE_),
                             _WITH_PRETTY_SENDER_<_Sender>>{};
     }
-
-   private:
-    // If __is_root_env<_Env> is true, then this sender has no parent, so there is no need
-    // to restore the execution context. We can use the inline scheduler as the scheduler
-    // if __env does not have one.
-    template <class _Sender, class _Env>
-    using __end_sched_t =
-      __if_c<__is_root_env<_Env>,
-             inline_scheduler,
-             __not_a_scheduler<_WHAT_(_CANNOT_RESTORE_EXECUTION_CONTEXT_AFTER_ON_),
-                               _WHY_(_THE_CURRENT_EXECUTION_ENVIRONMENT_DOESNT_HAVE_A_SCHEDULER_),
-                               _WHERE_(_IN_ALGORITHM_, on_t),
-                               _WITH_PRETTY_SENDER_<__child_of<_Sender>>,
-                               _WITH_ENVIRONMENT_(_Env)>>;
   };
 
   inline constexpr on_t on{};
@@ -127,6 +180,25 @@ namespace STDEXEC
   template <>
   struct __sexpr_impl<on_t> : __sexpr_defaults
   {
+    static constexpr auto __get_attrs =  //
+      []<class _Data, class _Child>(__ignore, _Data const & __data, _Child const & __child) noexcept
+    {
+      if constexpr (scheduler<_Data>)
+      {
+        // This is the case where `on` was called like `on(sch, sndr)`, which is equivalent
+        // to `continues_on(starts_on(sndr, sch), old_sch)`.
+        return __on::__attrs<_Child, _Data>{__data, STDEXEC::get_env(__child)};
+      }
+      else
+      {
+        // This is the case where `on` was called like `sndr | on(sch, clsur)` or
+        // `on(sndr, sch, clsur)`, which is equivalent to
+        // `continues_on(clsur(continues_on(sndr, sch)), old_sch)`.
+        auto& [__sched, __clsur] = __data;
+        return __on::__attrs<_Child, _Data>{__sched, STDEXEC::get_env(__child)};
+      }
+    };
+
     template <class _Sender, class _Env>
     static constexpr auto __get_completion_signatures()
     {
