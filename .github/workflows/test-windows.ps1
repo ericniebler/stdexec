@@ -26,4 +26,4 @@ Invoke-NativeCommand cmake -B $BuildDirectory -G Ninja `
 	"-DSTDEXEC_ASIO_IMPLEMENTATION:STRING=boost" `
 	"-DSTDEXEC_BUILD_TESTS:BOOL=TRUE" .
 Invoke-NativeCommand cmake --build $BuildDirectory
-Invoke-NativeCommand ctest --test-dir $BuildDirectory
+Invoke-NativeCommand ctest --test-dir $BuildDirectory --output-on-failure --verbose --timeout 60
