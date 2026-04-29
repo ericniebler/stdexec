@@ -36,18 +36,20 @@ TODO: more sender factory algorithms
 
 .. doxygenvariable:: stdexec::read_env
 
-.. .. doxygenstruct:: exec::just_from_t
+.. .. doxygenstruct:: experimental::execution::just_from_t
 
-.. doxygenvariable:: exec::just_from
+.. doxygenvariable:: experimental::execution::just_from
 
-.. doxygenvariable:: exec::just_error_from
+.. doxygenvariable:: experimental::execution::just_error_from
 
-.. doxygenvariable:: exec::just_stopped_from
+.. doxygenvariable:: experimental::execution::just_stopped_from
 
 Sender Adaptors
 ---------------
 
 TODO: More sender adaptor algorithms
+
+.. doxygenstruct:: stdexec::then_t
 
 .. doxygenvariable:: stdexec::then
 
@@ -75,7 +77,7 @@ TODO: More sender consumer algorithms
 
 .. doxygenvariable:: stdexec::sync_wait
 
-.. doxygenvariable:: exec::start_detached
+.. doxygenvariable:: experimental::execution::start_detached
 
 Utilities
 ---------

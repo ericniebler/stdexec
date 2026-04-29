@@ -82,6 +82,8 @@ namespace STDEXEC
   }  // namespace __then
 
   ////////////////////////////////////////////////////////////////////////////////////////////////
+  //! @brief The \c then sender adaptor, which invokes a function with the result of
+  //!        a sender, making the result available to the next receiver.
   struct then_t
   {
     template <sender _Sender, __movable_value _Fun>
@@ -98,9 +100,9 @@ namespace STDEXEC
     }
   };
 
-  /// @brief The then sender adaptor, which invokes a function with the result of
-  ///        a sender, making the result available to the next receiver.
-  /// @hideinitializer
+  //! @brief The \c then sender adaptor, which invokes a function with the result of
+  //!        a sender, making the result available to the next receiver.
+  //! @hideinitializer
   inline constexpr then_t then{};
 
   template <>
