@@ -149,7 +149,7 @@ namespace STDEXEC
   // constexpr stdlib exception types, https://wg21.link/p3378
   using __exception = ::std::exception;
 
-#elif __cpp_constexpr >= 202411L  // constexpr virtual functions
+#elif __cpp_constexpr >= 201907L  // constexpr virtual functions
 
   // constexpr virtual functions
   struct __exception
