@@ -17,6 +17,8 @@
 find_package(Doxygen REQUIRED)
 find_package(Sphinx REQUIRED)
 
+include(../cmake/Modules/ConfigureASIO.cmake)
+
 # Find all the public headers
 set(STDEXEC_PUBLIC_HEADER_DIR ${CMAKE_SOURCE_DIR}/include)
 file(GLOB_RECURSE STDEXEC_PUBLIC_HEADERS ${STDEXEC_PUBLIC_HEADER_DIR}/*.hpp)
