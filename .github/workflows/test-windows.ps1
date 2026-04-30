@@ -29,8 +29,8 @@ Invoke-NativeCommand cmake -B $BuildDirectory -G Ninja `
 Invoke-NativeCommand cmake --build $BuildDirectory
 
 # Enable AppVerifier for the test executables
-Invoke-NativeCommand appverif -enable Basics -for test.stdexec.exe
-Invoke-NativeCommand appverif -enable Basics -for test.exec.exe
+Invoke-NativeCommand appverif /verify test.stdexec.exe
+Invoke-NativeCommand appverif /verify test.exec.exe
 
 Invoke-NativeCommand ctest --test-dir $BuildDirectory --output-on-failure --verbose --timeout 60
 
