@@ -152,7 +152,8 @@ namespace
                    }
 
                    return ex::schedule(sch);
-                 });
+                 })
+             | ::_proclaim_completes_on(sch);
     STDEXEC::sync_wait(std::move(snd));
 
     REQUIRE(flags_storage.all_set_once());
